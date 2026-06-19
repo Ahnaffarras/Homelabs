@@ -1,0 +1,41 @@
+# ============================================================
+# Terraform
+# ============================================================
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+.terraform.lock.hcl
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# ============================================================
+# Ansible
+# ============================================================
+ansible/inventory/hosts.ini
+ansible/kubeconfig/
+*.retry
+.vault_pass
+
+# ============================================================
+# SSH / Secrets
+# ============================================================
+*.pem
+*.key
+id_rsa
+id_ed25519
+
+# ============================================================
+# OS / Editor
+# ============================================================
+.DS_Store
+*.swp
+.vscode/
+.idea/

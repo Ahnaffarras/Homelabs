@@ -1,0 +1,42 @@
+---
+# ============================================================
+# Role: k3s_worker
+# Install K3s agent dan join ke cluster menggunakan token
+# yang dihasilkan oleh node master (role k3s_master harus
+# dijalankan lebih dulu).
+# ============================================================
+
+- name: Pastikan node_token dari master sudah tersedia
+  ansible.builtin.assert:
+    that:
+      - hostvars[groups['master'][0]]['node_token'] is defined
+    fail_msg: >
+      node_token belum tersedia. Pastikan play untuk role k3s_master
+      dijalankan SEBELUM role k3s_worker (lihat site.yml).
+    success_msg: "node_token ditemukan, lanjut join cluster."
+
+- name: Cek apakah k3s agent sudah terinstall
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s-agent
+  register: k3s_agent_binary
+
+- name: Download & install K3s agent, lalu join ke master
+  ansible.builtin.shell: >
+    curl -sfL https://get.k3s.io | sh -s - agent
+    --node-name {{ inventory_hostname }}
+  args:
+    creates: /usr/local/bin/k3s-agent
+  environment:
+    INSTALL_K3S_VERSION: "{{ k3s_version }}"
+    K3S_URL: "https://{{ hostvars[groups['master'][0]]['ansible_host'] }}:6443"
+    K3S_TOKEN: "{{ hostvars[groups['master'][0]]['node_token'] }}"
+
+- name: Tunggu service k3s-agent aktif
+  ansible.builtin.systemd:
+    name: k3s-agent
+    state: started
+    enabled: true
+
+- name: Tampilkan info join
+  ansible.builtin.debug:
+    msg: "Worker {{ inventory_hostname }} ({{ ansible_host }}) berhasil join ke cluster via {{ hostvars[groups['master'][0]]['ansible_host'] }}"

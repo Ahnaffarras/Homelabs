@@ -1,0 +1,46 @@
+---
+# ============================================================
+# Playbook utama: provisioning k3s 3-node cluster
+# Urutan WAJIB: common -> master -> worker
+# (worker butuh node_token yang di-generate saat play master)
+# ============================================================
+
+- name: Persiapan dasar di semua node (common)
+  hosts: k3s_cluster
+  become: true
+  gather_facts: true
+  roles:
+    - common
+
+- name: Install K3s server di node master
+  hosts: master
+  become: true
+  gather_facts: true
+  roles:
+    - k3s_master
+
+- name: Install K3s agent di node worker & join ke cluster
+  hosts: workers
+  become: true
+  gather_facts: true
+  roles:
+    - k3s_worker
+
+- name: Verifikasi akhir cluster
+  hosts: master
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Tunggu semua node terdaftar dan Ready
+      ansible.builtin.command: kubectl get nodes -o wide
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+      register: nodes_status
+      retries: 10
+      delay: 10
+      until: "'NotReady' not in nodes_status.stdout"
+      changed_when: false
+
+    - name: Tampilkan status node cluster
+      ansible.builtin.debug:
+        msg: "{{ nodes_status.stdout_lines }}"

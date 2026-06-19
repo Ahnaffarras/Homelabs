@@ -1,0 +1,38 @@
+# ============================================================
+# Salin file ini menjadi terraform.tfvars lalu sesuaikan nilainya
+#   cp terraform.tfvars.example terraform.tfvars
+# JANGAN commit terraform.tfvars ke git (sudah ada di .gitignore)
+# ============================================================
+
+libvirt_uri = "qemu:///system"
+
+cluster_name = "k3s"
+
+# ---- WAJIB DIISI ----
+
+# Path ke Ubuntu Server cloud image yang sudah Anda download.
+# Download dari: https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
+# Pastikan path ini bisa diakses oleh user/group libvirt-qemu
+ubuntu_image_path = "/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img"
+
+# SSH public key Anda, dapatkan dengan: cat ~/.ssh/id_rsa.pub
+ssh_public_key = "ssh-ed25519 AAAA... user@host"
+
+# ---- OPSIONAL (default sudah cukup untuk belajar) ----
+
+vm_user = "ubuntu"
+
+network_cidr           = "192.168.100.0/24"
+network_prefix_length  = 24
+network_gateway        = "192.168.100.1"
+master_ip              = "192.168.100.10"
+network_interface_name = "ens3" # cek dengan `ip a` di image Ubuntu 22.04 cloud, biasanya ens3
+
+master_vcpu      = 2
+master_memory    = 2048 # MB
+master_disk_size = 20   # GB
+
+worker_count     = 2
+worker_vcpu      = 2
+worker_memory    = 2048 # MB
+worker_disk_size = 20   # GB

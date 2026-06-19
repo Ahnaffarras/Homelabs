@@ -1,0 +1,13 @@
+---
+# Kosongkan untuk install K3s versi stable terbaru.
+# Contoh isi spesifik versi: "v1.29.4+k3s1"
+k3s_version: ""
+
+# Komponen bawaan K3s yang ingin di-disable.
+# Default K3s sudah include: traefik (ingress), servicelb (loadbalancer),
+# local-path-provisioner (storage), metrics-server, coredns.
+# Kosongkan list ini jika ingin semua komponen default tetap aktif (rekomendasi untuk belajar).
+k3s_disable_components: []
+
+# Direktori lokal (di mesin kontrol/laptop Anda) tempat kubeconfig hasil cluster disimpan
+kubeconfig_local_dir: "{{ playbook_dir }}/kubeconfig"

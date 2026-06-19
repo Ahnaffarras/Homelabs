@@ -1,0 +1,81 @@
+---
+# ============================================================
+# Role: common
+# Persiapan dasar yang dibutuhkan SEMUA node (master & worker)
+# sebelum K3s diinstall.
+# ============================================================
+
+- name: Tunggu apt lock terlepas (cloud-init mungkin masih jalan)
+  ansible.builtin.shell: |
+    while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 2; done
+  changed_when: false
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Pastikan paket dasar terinstall
+  ansible.builtin.apt:
+    name:
+      - curl
+      - apt-transport-https
+      - ca-certificates
+      - software-properties-common
+      - open-iscsi
+      - nfs-common
+    state: present
+
+- name: Cek status swap
+  ansible.builtin.command: swapon --show
+  register: swap_status
+  changed_when: false
+  failed_when: false
+
+- name: Matikan swap (rekomendasi untuk Kubernetes)
+  ansible.builtin.command: swapoff -a
+  when: swap_status.stdout != ""
+  changed_when: true
+
+- name: Nonaktifkan entry swap permanen di /etc/fstab
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\sswap\s.*)$'
+    replace: '# \1'
+
+- name: Load kernel module overlay
+  ansible.builtin.command: modprobe overlay
+  changed_when: false
+
+- name: Load kernel module br_netfilter
+  ansible.builtin.command: modprobe br_netfilter
+  changed_when: false
+
+- name: Pastikan kernel module ter-load otomatis saat boot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k3s.conf
+    content: |
+      overlay
+      br_netfilter
+    mode: "0644"
+
+- name: Set sysctl yang dibutuhkan Kubernetes networking
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-kubernetes-k3s.conf
+    content: |
+      net.bridge.bridge-nf-call-iptables  = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.ipv4.ip_forward                 = 1
+    mode: "0644"
+
+- name: Terapkan perubahan sysctl
+  ansible.builtin.command: sysctl --system
+  changed_when: false
+
+- name: Tambahkan semua node cluster ke /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "{{ hostvars[item].ansible_host }} {{ item }}"
+    state: present
+  loop: "{{ groups['k3s_cluster'] }}"
+  when: hostvars[item].ansible_host is defined

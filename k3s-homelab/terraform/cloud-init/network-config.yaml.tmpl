@@ -1,0 +1,9 @@
+version: 2
+ethernets:
+  ${iface_name}:
+    dhcp4: false
+    addresses:
+      - ${ip_address}/${prefix}
+    gateway4: ${gateway}
+    nameservers:
+      addresses: ${jsonencode(dns_servers)}

@@ -1,0 +1,97 @@
+---
+# ============================================================
+# Role: k3s_master
+# Install K3s server di node master, lalu expose node-token
+# sebagai fact agar bisa dipakai role k3s_worker.
+# ============================================================
+
+- name: Cek apakah k3s server sudah terinstall
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+
+- name: Susun argumen disable component (jika ada)
+  ansible.builtin.set_fact:
+    k3s_disable_args: "{{ k3s_disable_components | map('regex_replace', '^(.*)$', '--disable=\\1') | join(' ') }}"
+
+- name: Download & install K3s server
+  ansible.builtin.shell: >
+    curl -sfL https://get.k3s.io | sh -s - server
+    --tls-san {{ ansible_host }}
+    --write-kubeconfig-mode=644
+    --node-name {{ inventory_hostname }}
+    {{ k3s_disable_args }}
+  args:
+    creates: /usr/local/bin/k3s
+  environment:
+    INSTALL_K3S_VERSION: "{{ k3s_version }}"
+  register: k3s_install_result
+
+- name: Tunggu service k3s aktif
+  ansible.builtin.systemd:
+    name: k3s
+    state: started
+    enabled: true
+
+- name: Tunggu kubeconfig tersedia
+  ansible.builtin.wait_for:
+    path: /etc/rancher/k3s/k3s.yaml
+    state: present
+    timeout: 180
+
+- name: Tunggu node-token tersedia
+  ansible.builtin.wait_for:
+    path: /var/lib/rancher/k3s/server/node-token
+    state: present
+    timeout: 180
+
+- name: Tunggu API server merespon (port 6443)
+  ansible.builtin.wait_for:
+    port: 6443
+    host: "{{ ansible_host }}"
+    timeout: 180
+
+- name: Baca isi node-token
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  register: node_token_raw
+
+- name: Set fact node_token (dipakai worker untuk join cluster)
+  ansible.builtin.set_fact:
+    node_token: "{{ node_token_raw.content | b64decode | trim }}"
+
+- name: Buat direktori kubeconfig lokal di mesin kontrol
+  ansible.builtin.file:
+    path: "{{ kubeconfig_local_dir }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  become: false
+
+- name: Ambil kubeconfig dari master ke mesin kontrol
+  ansible.builtin.fetch:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: "{{ kubeconfig_local_dir }}/k3s.yaml"
+    flat: true
+
+- name: Ganti server address (127.0.0.1) jadi IP master di kubeconfig lokal
+  ansible.builtin.replace:
+    path: "{{ kubeconfig_local_dir }}/k3s.yaml"
+    regexp: "https://127\\.0\\.0\\.1:6443"
+    replace: "https://{{ ansible_host }}:6443"
+  delegate_to: localhost
+  become: false
+
+- name: Set permission kubeconfig lokal agar tidak bisa dibaca user lain
+  ansible.builtin.file:
+    path: "{{ kubeconfig_local_dir }}/k3s.yaml"
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+
+- name: Tampilkan info akses cluster
+  ansible.builtin.debug:
+    msg:
+      - "K3s server berhasil diinstall di {{ inventory_hostname }} ({{ ansible_host }})"
+      - "Kubeconfig tersimpan di: {{ kubeconfig_local_dir }}/k3s.yaml"
+      - "Gunakan: export KUBECONFIG={{ kubeconfig_local_dir }}/k3s.yaml"

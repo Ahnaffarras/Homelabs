@@ -1,0 +1,25 @@
+# ============================================================
+# Inventory ini akan DI-GENERATE OTOMATIS oleh scripts/deploy.sh
+# berdasarkan output Terraform.
+#
+# Tapi jika Anda ingin setup manual (tanpa deploy.sh), salin file
+# ini menjadi hosts.ini dan sesuaikan IP-nya dengan output:
+#   cd terraform && terraform output
+# ============================================================
+
+[master]
+k3s-master ansible_host=192.168.100.10
+
+[workers]
+k3s-worker-1 ansible_host=192.168.100.11
+k3s-worker-2 ansible_host=192.168.100.12
+
+[k3s_cluster:children]
+master
+workers
+
+[k3s_cluster:vars]
+ansible_user=ubuntu
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+ansible_ssh_common_args='-o StrictHostKeyChecking=accept-new'
+ansible_python_interpreter=/usr/bin/python3
